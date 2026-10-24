@@ -1,0 +1,88 @@
+name: Build Mesh app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Android project
+        run: |
+          flutter create . --platforms android --org com.tscpa --project-name mesh_app
+          cp platform_overrides/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+          # minSdk 23 (needed by Nearby Connections / mobile_scanner)
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle.kts
+          else
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/; s/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle
+          fi
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        continue-on-error: true
+      - name: Build APK
+        run: flutter build apk --release
+      - run: cp build/app/outputs/flutter-apk/app-release.apk Mesh-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mesh-android-apk
+          path: Mesh-android.apk
+
+  windows:
+    name: Windows ZIP
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate Windows project
+        run: flutter create . --platforms windows --org com.tscpa --project-name mesh_app
+      - run: flutter pub get
+      - name: Build Windows
+        run: flutter build windows --release
+      - name: Zip
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath Mesh-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mesh-windows-zip
+          path: Mesh-windows.zip
+
+  release:
+    name: Publish release
+    needs: [android, windows]
+    if: always() && needs.android.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: List
+        run: ls -R dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Mesh build ${{ github.run_number }}
+          body: |
+            **Mesh-android.apk** – install on Android (allow "unknown sources" when asked).
+            **Mesh-windows.zip** – unzip on a laptop and run `mesh_app.exe` (UI only; Bluetooth mesh works on Android).
+          files: |
+            dist/**/*.apk
+            dist/**/*.zip

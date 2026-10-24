@@ -1,0 +1,32 @@
+name: mesh_app
+description: Offline mesh messaging + nearby networking (profile sharing) app.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  # Peer-to-peer Bluetooth / Wi-Fi Direct connections (Android)
+  nearby_connections: ^4.1.0
+  permission_handler: ^11.3.1
+  # Local persistence
+  shared_preferences: ^2.3.2
+  # Profile sharing via QR
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.2.3
+  # Misc
+  uuid: ^4.5.1
+  intl: ^0.19.0
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
